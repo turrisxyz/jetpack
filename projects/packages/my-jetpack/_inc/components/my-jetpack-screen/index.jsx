@@ -71,6 +71,7 @@ export default function MyJetpackScreen() {
 		<AdminPage>
 			<AdminSectionHero>
 				<Container horizontalSpacing={ 5 } horizontalGap={ message ? 3 : 6 }>
+					<div id="jp-admin-notices" />
 					<Col sm={ 4 } md={ 7 } lg={ 6 }>
 						<h1 className={ styles.heading }>
 							{ __(
