@@ -51,7 +51,17 @@ class Products {
 	 * @return array Product names array.
 	 */
 	public static function get_product_names() {
-		return array_keys( self::get_products() );
+		return array(
+			'anti-spam',
+			'backup',
+			'boost',
+			'scan',
+			'search',
+			'security',
+			'videopress',
+			'crm',
+			'extras',
+		);
 	}
 
 	/**
