@@ -1,0 +1,4 @@
+Significance: patch
+Type: fixed
+
+Return product slugs in get_product_names9) instead of getting them from the product info array
