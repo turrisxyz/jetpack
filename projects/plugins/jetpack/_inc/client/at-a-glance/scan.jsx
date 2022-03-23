@@ -51,6 +51,7 @@ import {
  */
 const renderCard = props => (
 	<DashItem
+		headerIcon="scan"
 		label={ __( 'Scan', 'jetpack' ) }
 		module={ props.feature || 'scan' }
 		support={ {

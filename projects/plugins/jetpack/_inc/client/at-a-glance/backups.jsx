@@ -49,6 +49,7 @@ import BackupUpgrade from './backup-upgrade';
  */
 const renderCard = props => (
 	<DashItem
+		headerIcon="backup"
 		label={ __( 'Backup', 'jetpack' ) }
 		module={ props.feature || 'backups' }
 		support={ {
