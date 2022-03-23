@@ -15,10 +15,6 @@ import './style.scss';
 export default class SectionHeader extends React.Component {
 	static displayName = 'SectionHeader';
 
-	static propTypes = {
-		label: PropTypes.string,
-	};
-
 	static defaultProps = {
 		label: '',
 	};
