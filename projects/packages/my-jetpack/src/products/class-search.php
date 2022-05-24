@@ -50,6 +50,13 @@ class Search extends Hybrid_Product {
 	);
 
 	/**
+	 * Search only requires site connection
+	 *
+	 * @var boolean
+	 */
+	public static $requires_user_connection = true;
+
+	/**
 	 * Get the internationalized product name
 	 *
 	 * @return string
