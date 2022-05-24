@@ -54,7 +54,7 @@ class Search extends Hybrid_Product {
 	 *
 	 * @var boolean
 	 */
-	public static $requires_user_connection = true;
+	public static $requires_user_connection = false;
 
 	/**
 	 * Get the internationalized product name
