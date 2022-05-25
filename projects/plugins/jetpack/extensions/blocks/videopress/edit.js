@@ -734,9 +734,20 @@ const VideoPressEdit = CoreVideoEdit =>
 				);
 			};
 
-			const sendUpdatePosterRequest = () => {
+			const sendUpdatePosterFromMillisecondsRequest = () =>
+				__sendUpdatePoster( {
+					at_time: this.state.videoFrameSelectedInMillis,
+					is_millisec: true,
+				} );
+
+			const sendUpdatePosterRequest = () =>
+				__sendUpdatePoster( {
+					poster_attachment_id: this.state.videoPosterImageData.id,
+				} );
+
+			const __sendUpdatePoster = data => {
 				if ( shouldUseJetpackVideoFetch() ) {
-					return window.videoPressUploadPoster( guid, this.state.videoPosterImageData.id );
+					return window.videoPressUploadPoster( guid, data );
 				}
 
 				apiFetch( {
@@ -744,14 +755,16 @@ const VideoPressEdit = CoreVideoEdit =>
 					apiNamespace: 'rest/v1.1',
 					method: 'POST',
 					global: true,
-					data: {
-						poster_attachment_id: this.state.videoPosterImageData.id,
-					},
+					data: data,
 				} ).catch( e => console.log( e ) );
 			};
 
 			const onEditorShown = () => {
 				this.setState( { hasShownUploadingEditor: true } );
+			};
+
+			const onVideoFrameSelected = ms => {
+				this.setState( { videoFrameSelectedInMillis: ms } );
 			};
 
 			const dismissEditor = () => {
@@ -763,6 +776,10 @@ const VideoPressEdit = CoreVideoEdit =>
 
 				if ( this.state.title ) {
 					sendUpdateTitleRequest();
+				}
+
+				if ( this.state.videoFrameSelectedInMillis ) {
+					sendUpdatePosterFromMillisecondsRequest();
 				}
 			};
 
@@ -789,6 +806,7 @@ const VideoPressEdit = CoreVideoEdit =>
 						title={ title }
 						videoPosterImageData={ this.state.videoPosterImageData }
 						onEditorShown={ onEditorShown }
+						onVideoFrameSelected={ onVideoFrameSelected }
 					/>
 				);
 			}
@@ -891,6 +909,7 @@ const UploaderBlock = props => {
 		isUploadComplete,
 		onDismissEditor,
 		onEditorShown,
+		onVideoFrameSelected,
 	} = props;
 
 	return (
@@ -910,6 +929,7 @@ const UploaderBlock = props => {
 						onSelectPoster={ onSelectPoster }
 						videoPosterImageData={ videoPosterImageData }
 						onEditorShown={ onEditorShown }
+						onVideoFrameSelected={ onVideoFrameSelected }
 					/>
 					{ ! isUploadComplete && <ResumableUpload file={ fileForUpload } /> }
 					{ isUploadComplete && (
