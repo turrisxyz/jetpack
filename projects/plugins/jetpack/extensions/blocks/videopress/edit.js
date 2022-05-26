@@ -37,7 +37,7 @@ import { get, indexOf } from 'lodash';
  */
 import Loading from './loading';
 import { getVideoPressUrl } from './url';
-import { getClassNames } from './utils';
+import { getClassNames, removeFileNameExtension } from './utils';
 import ResumableUpload from './resumable-upload';
 import SeekbarColorSettings from './seekbar-color-settings';
 import TracksEditor from './tracks-editor';
@@ -717,7 +717,10 @@ const VideoPressEdit = CoreVideoEdit =>
 			const shouldUseJetpackVideoFetch = () => {
 				return 'videoPressUploadPoster' in window;
 			};
-			const filename = escapeHTML( fileForUpload ? fileForUpload.name : '' );
+
+			const filename = escapeHTML(
+				fileForUpload ? removeFileNameExtension( fileForUpload.name ) : ''
+			);
 			const onChangeTitle = newTitle => this.setState( { title: newTitle } );
 
 			const onSelectPoster = attachment => {
