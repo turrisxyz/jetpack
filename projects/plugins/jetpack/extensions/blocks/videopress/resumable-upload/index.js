@@ -9,8 +9,7 @@ import filesize from 'filesize';
 import { __, sprintf } from '@wordpress/i18n';
 import { escapeHTML } from '@wordpress/escape-html';
 import { getJWT, resumableUploader } from './use-uploader';
-import { Button, Icon, TextControl, TextareaControl, BaseControl } from '@wordpress/components';
-import { MediaUpload, useBlockProps } from '@wordpress/block-editor';
+import { Button } from '@wordpress/components';
 import {
 	createInterpolateElement,
 	useCallback,
