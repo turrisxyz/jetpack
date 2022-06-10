@@ -22,6 +22,107 @@ export const getJWT = function ( key ) {
 const jwtsForKeys = {};
 
 export const resumableUploader = ( { onError, onProgress, onSuccess } ) => {
+	const GUID_HEADER = 'x-videopress-upload-guid';
+	const MEDIA_ID_HEADER = 'x-videopress-upload-media-id';
+	const SRC_URL_HEADER = 'x-videopress-upload-src-url';
+
+	const extractUploadKeyForUrl = urlString => {
+		const url = new URL( urlString );
+		const path = url.pathname;
+		const parts = path.split( '/' );
+		return parts[ parts.length - 1 ];
+	};
+
+	const getJwtForKey = ( maybeUploadkey, method ) => {
+		return new Promise( ( resolve, reject ) => {
+			if ( jwtsForKeys[ maybeUploadkey ] ) {
+				resolve( jwtsForKeys[ maybeUploadkey ] );
+			} else if ( 'HEAD' === method ) {
+				getJWT( maybeUploadkey )
+					.then( responseData => {
+						jwtsForKeys[ maybeUploadkey ] = responseData.token;
+						resolve( jwtsForKeys[ maybeUploadkey ] );
+					} )
+					.catch( reject );
+			} else {
+				reject( 'No jwt present' );
+			}
+		} );
+	};
+
+	const extractHeadersFromXhr = res => {
+		const guid = res.getHeader( GUID_HEADER );
+		const mediaId = res.getHeader( MEDIA_ID_HEADER );
+		const src = res.getHeader( SRC_URL_HEADER );
+		return { src, mediaId, guid };
+	};
+
+	const extractHeadersFromFetch = res => {
+		const guid = res.headers.get( GUID_HEADER );
+		const mediaId = res.headers.get( MEDIA_ID_HEADER );
+		const src = res.headers.get( SRC_URL_HEADER );
+		return { src, mediaId, guid };
+	};
+
+	const triggerSuccessWhenGuidHeaderPresent = headers => {
+		const { src, mediaId, guid } = headers;
+		if ( guid && mediaId && src ) {
+			onSuccess && onSuccess( { mediaId: Number( mediaId ), guid, src } );
+			return true;
+		}
+
+		return false;
+	};
+
+	const methodNeedsUploadKey = method =>
+		[ 'OPTIONS', 'GET', 'HEAD', 'DELETE', 'PUT', 'PATCH' ].indexOf( method ) >= 0;
+
+	const startPollingForGuid = url => {
+		console.log( url );
+		// recursiveUrlRequest
+		const numRetries = 10;
+		const waitMs = 1000;
+		let timerId = null;
+		let retries = 0;
+		const recursiveUrlRequest = function recursiveUrlRequest() {
+			if ( retries > numRetries ) {
+				timerId && clearTimeout( timerId );
+				onError && onError();
+				return;
+			}
+
+			retries += 1;
+
+			const method = 'HEAD';
+			const maybeUploadkey = extractUploadKeyForUrl( url );
+			getJwtForKey( maybeUploadkey, method ).then( token => {
+				const headers = {
+					'x-videopress-upload-token': token,
+					'X-HTTP-Method-Override': method,
+				};
+
+				fetch( url, {
+					headers,
+					method: 'GET',
+				} ).then( response => {
+					if ( ! response.ok ) {
+						// fail, error out?
+						return;
+					}
+
+					const responseHeaders = extractHeadersFromFetch( response );
+
+					if ( ! triggerSuccessWhenGuidHeaderPresent( responseHeaders ) ) {
+						timerId = setTimeout( () => recursiveUrlRequest(), waitMs );
+					}
+				} );
+				// resolve( req );
+			} );
+		};
+
+		recursiveUrlRequest();
+	};
+
 	return ( file, data ) => {
 		const upload = new tus.Upload( file, {
 			onError: onError,
@@ -38,20 +139,19 @@ export const resumableUploader = ( { onError, onProgress, onSuccess } ) => {
 				filetype: file.type,
 			},
 			retryDelays: [ 0, 1000, 3000, 5000, 10000 ],
+			onSuccess: function () {
+				const successfulUploadUrl = upload.url;
+				startPollingForGuid( successfulUploadUrl );
+			},
 			onAfterResponse: function ( req, res ) {
 				// Why is this not showing the x-headers?
 				if ( res.getStatus() >= 400 ) {
 					return;
 				}
 
-				const GUID_HEADER = 'x-videopress-upload-guid';
-				const MEDIA_ID_HEADER = 'x-videopress-upload-media-id';
-				const SRC_URL_HEADER = 'x-videopress-upload-src-url';
-				const guid = res.getHeader( GUID_HEADER );
-				const mediaId = res.getHeader( MEDIA_ID_HEADER );
-				const src = res.getHeader( SRC_URL_HEADER );
-				if ( guid && mediaId && src ) {
-					onSuccess && onSuccess( { mediaId: Number( mediaId ), guid, src } );
+				const responseHeaders = extractHeadersFromXhr( res );
+
+				if ( triggerSuccessWhenGuidHeaderPresent( responseHeaders, onSuccess ) ) {
 					return;
 				}
 
@@ -75,8 +175,9 @@ export const resumableUploader = ( { onError, onProgress, onSuccess } ) => {
 				}
 			},
 			onBeforeRequest: function ( req ) {
-				// make ALL requests be either POST or GET to honor the public-api.wordpress.com "contract".
 				const method = req._method;
+				const hasJWT = !! data.token;
+				// make ALL requests be either POST or GET to honor the public-api.wordpress.com "contract".
 				if ( [ 'HEAD', 'OPTIONS' ].indexOf( method ) >= 0 ) {
 					req._method = 'GET';
 					req.setHeader( 'X-HTTP-Method-Override', method );
@@ -94,31 +195,25 @@ export const resumableUploader = ( { onError, onProgress, onSuccess } ) => {
 				} );
 
 				if ( 'POST' === method ) {
-					const hasJWT = !! data.token;
 					if ( hasJWT ) {
 						req.setHeader( 'x-videopress-upload-token', data.token );
+						return Promise.resolve( req );
+					}
+					// Upload CREATE methods should ALWAYS have a JWT.
+					return Promise.reject( 'should never happen' );
+				}
+
+				return new Promise( ( resolve, reject ) => {
+					if ( methodNeedsUploadKey( method ) ) {
+						const maybeUploadkey = extractUploadKeyForUrl( req._url );
+						getJwtForKey( maybeUploadkey, method ).then( token => {
+							req.setHeader( 'x-videopress-upload-token', token );
+							resolve( req );
+						}, reject );
 					} else {
-						throw 'should never happen';
+						resolve( req );
 					}
-				}
-
-				if ( [ 'OPTIONS', 'GET', 'HEAD', 'DELETE', 'PUT', 'PATCH' ].indexOf( method ) >= 0 ) {
-					const url = new URL( req._url );
-					const path = url.pathname;
-					const parts = path.split( '/' );
-					const maybeUploadkey = parts[ parts.length - 1 ];
-					if ( jwtsForKeys[ maybeUploadkey ] ) {
-						req.setHeader( 'x-videopress-upload-token', jwtsForKeys[ maybeUploadkey ] );
-					} else if ( 'HEAD' === method ) {
-						return getJWT( maybeUploadkey ).then( responseData => {
-							jwtsForKeys[ maybeUploadkey ] = responseData.token;
-							req.setHeader( 'x-videopress-upload-token', responseData.token );
-							return req;
-						} );
-					}
-				}
-
-				return Promise.resolve( req );
+				} );
 			},
 		} );
 
