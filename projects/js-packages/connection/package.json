@@ -42,6 +42,7 @@
 		".": "./index.jsx"
 	},
 	"sideEffects": [
+		"./state/store.jsx",
 		"*.css",
 		"*.scss"
 	],
